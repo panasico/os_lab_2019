@@ -24,11 +24,21 @@ int main(int argc, char **argv) {
 
   int *array = malloc(array_size * sizeof(int));
   GenerateArray(array, array_size, seed);
+  struct timeval start_time;
+  gettimeofday(&start_time, NULL);
   struct MinMax min_max = GetMinMax(array, 0, array_size);
+  
+  struct timeval finish_time;
+  gettimeofday(&finish_time, NULL);
   free(array);
 
-  printf("min: %d\n", min_max.min);
+  printf("\nmin: %d\n", min_max.min);
   printf("max: %d\n", min_max.max);
 
+  
+
+  double elapsed_time = (finish_time.tv_sec - start_time.tv_sec) * 1000.0;
+  elapsed_time += (finish_time.tv_usec - start_time.tv_usec) / 1000.0;
+  printf("Elapsed time: %fms\n", elapsed_time);
   return 0;
 }
