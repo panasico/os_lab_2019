@@ -10,7 +10,7 @@ int main(void)
 {
         pid_t child = fork();
         if(child == 0){
-            execl("sequential", "sequential", "360", "10", NULL );
+            execl("sequential", "sequential", "360", "10");
         }
         else
             wait(NULL);

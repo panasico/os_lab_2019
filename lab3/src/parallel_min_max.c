@@ -103,12 +103,14 @@ int main(int argc, char **argv) {
 
   //pipe
   int pipefd[2];
-  pipe(pipefd);
   pid_t currentPID;
+  pipe(pipefd);
   int array_piece = array_size / pnum > 0 ? array_size / pnum : 1;
 
   for (int i = 0; i < pnum; i++) {
     pid_t child_pid = fork();
+    
+    
     currentPID = child_pid;
     if (child_pid >= 0) {
       // successful fork
