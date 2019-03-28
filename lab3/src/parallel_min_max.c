@@ -15,12 +15,24 @@
 #include "find_min_max.h"
 #include "utils.h"
 
+pid_t currentPID;
+
+int MyKill(){
+    int result = kill(currentPID, SIGKILL);
+    if(result == 0)
+        printf("killed child process\n");
+    else
+        printf("error while killing\n");
+    return result;
+}
+
 int main(int argc, char **argv) {
   int seed = -1;
   int array_size = -1;
   int pnum = -1;
   bool with_files = false;
-
+  int timeout = -1;
+//printf(argc);
   while (true) {
     int current_optind = optind ? optind : 1;
 
@@ -28,11 +40,11 @@ int main(int argc, char **argv) {
                                       {"array_size", required_argument, 0, 0},
                                       {"pnum", required_argument, 0, 0},
                                       {"by_files", no_argument, 0, 'f'},
+                                      {"timeout", required_argument, 0, 't'},
                                       {0, 0, 0, 0}};
 
     int option_index = 0;
-    int c = getopt_long(argc, argv, "f", options, &option_index);
-
+    int c = getopt_long(argc, argv, "ft", options, &option_index);
     if (c == -1) break;
 
     switch (c) {
@@ -62,7 +74,6 @@ int main(int argc, char **argv) {
           case 3:
             with_files = true;
             break;
-
           defalut:
             printf("Index %d is out of options\n", option_index);
         }
@@ -70,7 +81,13 @@ int main(int argc, char **argv) {
       case 'f':
         with_files = true;
         break;
-
+      case 't':
+            timeout = atoi(optarg);
+            if (pnum <= 0) {
+                printf("timeout must be a positive number\n");
+                return 1;
+              }
+            break; 
       case '?':
         break;
 
@@ -82,7 +99,7 @@ int main(int argc, char **argv) {
     printf("Has at least one no option argument\n");
     return 1;
   }
-
+  
   if (seed == -1 || array_size == -1 || pnum == -1) {
     printf("Usage: %s --seed \"num\" --array_size \"num\" --pnum \"num\" \n",
            argv[0]);
@@ -91,6 +108,7 @@ int main(int argc, char **argv) {
 
   int *array = malloc(sizeof(int) * array_size);
   GenerateArray(array, array_size, seed);
+  printf("\nTIMEOUT = %d\n",timeout);
   //print array
   printf("\n\nARRAY:\n");
   for(int i = 0; i < array_size; i++)
@@ -103,7 +121,6 @@ int main(int argc, char **argv) {
 
   //pipe
   int pipefd[2];
-  pid_t currentPID;
   pipe(pipefd);
   int array_piece = array_size / pnum > 0 ? array_size / pnum : 1;
 
@@ -148,11 +165,18 @@ int main(int argc, char **argv) {
   }
 
   while (active_child_processes > 0) {
+     if(timeout != -1){
+        signal(SIGALRM, MyKill);
+        alarm(timeout);
+        sleep(10);
+    }
+
     // your code here
     close(pipefd[1]);
+    
     wait(NULL);
     
-    active_child_processes -= 1;
+    active_child_processes--;
   }
 
   struct MinMax min_max;
