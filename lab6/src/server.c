@@ -12,31 +12,28 @@
 #include <sys/types.h>
 
 #include "pthread.h"
+#include "libFactorial.h"
 
-struct FactorialArgs {
-  uint64_t begin;
-  uint64_t end;
-  uint64_t mod;
-};
 
-uint64_t MultModulo(uint64_t a, uint64_t b, uint64_t mod) {
-  uint64_t result = 0;
-  a = a % mod;
-  while (b > 0) {
-    if (b % 2 == 1)
-      result = (result + a) % mod;
-    a = (a * 2) % mod;
-    b /= 2;
-  }
 
-  return result % mod;
-}
+pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
 uint64_t Factorial(const struct FactorialArgs *args) {
   uint64_t ans = 1;
-
-  // TODO: your code here
-
+  for(uint64_t i = 0; args->begin + i <= args->end; i++){        
+        ans *= (args->begin + i);
+        //ans %= args->mod;
+        
+        printf(   "begin+i: %llu end: %llu mod: %llu \n\t ans: %llu\n",\
+                                                        args->begin + i,\
+                                                        args->end,\
+                                                        args->mod,\
+                                                        ans);
+                                                        
+                                                       
+        printf(   "ans: %llu\n", ans);
+    }
+    
   return ans;
 }
 
@@ -67,11 +64,17 @@ int main(int argc, char **argv) {
       switch (option_index) {
       case 0:
         port = atoi(optarg);
-        // TODO: your code here
+        /*if (port != 20001) {
+            printf("port must be 20001\n");
+            return 1;
+          }*/
         break;
       case 1:
         tnum = atoi(optarg);
-        // TODO: your code here
+        if (tnum < 1) {
+            printf("tnum must be >= 1\n");
+            return 1;
+          }
         break;
       default:
         printf("Index %d is out of options\n", option_index);
@@ -87,7 +90,7 @@ int main(int argc, char **argv) {
   }
 
   if (port == -1 || tnum == -1) {
-    fprintf(stderr, "Using: %s --port 20001 --tnum 4\n", argv[0]);
+    fprintf(stderr, "Using: %s --port \"port_num\" --tnum \"thread_num\"\n", argv[0]);
     return 1;
   }
 
@@ -96,6 +99,8 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Can not create server socket!");
     return 1;
   }
+
+////////////////////EVERYTHING UP TO THIS MOMENT IS WORKING
 
   struct sockaddr_in server;
   server.sin_family = AF_INET;
@@ -156,12 +161,44 @@ int main(int argc, char **argv) {
 
       fprintf(stdout, "Receive: %llu %llu %llu\n", begin, end, mod);
 
+      printf("RECIEVED: [begin: %llu end: %llu mod: %llu]\n", begin, end, mod);
       struct FactorialArgs args[tnum];
-      for (uint32_t i = 0; i < tnum; i++) {
-        // TODO: parallel somehow
-        args[i].begin = 1;
-        args[i].end = 1;
+      
+      uint64_t part;
+      uint64_t real_tnum = tnum;
+      uint64_t size = end-begin;
+      if(size/tnum < 2)
+        part = size, real_tnum = 1;
+      else
+        part = size/tnum;
+      
+      for (uint32_t i = 0, j = 1; i < real_tnum; i++, j=i+1) {
+        // TODO: parallel somehow 
+        
+            
+        //pthread_mutex_lock(&mut);
+        
+        /*
+        args[i].begin = begin*part;
+        args[i].end = end;
         args[i].mod = mod;
+        */
+        args[i].mod = mod;
+        if(real_tnum != 1 && j == real_tnum && real_tnum*part <= end){
+            args[i].begin = i*part + 1;
+            args[i].end = end;
+        }
+        else
+            if(i == 0){
+                args[i].begin = begin;
+                args[i].end = begin + part;
+            }
+            else{
+                args[i].begin = i*part + 1;
+                args[i].end = j*part;
+            }
+              
+        //pthread_mutex_unlock(&mut);
 
         if (pthread_create(&threads[i], NULL, ThreadFactorial,
                            (void *)&args[i])) {
@@ -171,10 +208,31 @@ int main(int argc, char **argv) {
       }
 
       uint64_t total = 1;
-      for (uint32_t i = 0; i < tnum; i++) {
+          
+      printf(   "tnum: %llu real_tnum: %llu\n", tnum, real_tnum);
+      for (uint32_t i = 0; i < real_tnum; i++) {
+               
+               ///mycode
+        pthread_mutex_lock(&mut);
         uint64_t result = 0;
         pthread_join(threads[i], (void **)&result);
-        total = MultModulo(total, result, mod);
+            
+        printf("\ttotal in cycle: %llu\n\tresult in cycle: %llu\n", total, result);
+        
+        if(i == 0)
+            total = result % mod;
+        else
+            total *= result, total %= mod;
+        
+        
+        /*if(real_tnum < tnum)
+            for(uint32_t j = 0; j < tnum; j++)
+                    total = MultModulo(total, result, mod);
+        else
+            total = MultModulo(total, result, mod);
+            */
+        
+        pthread_mutex_unlock(&mut);
       }
 
       printf("Total: %llu\n", total);
